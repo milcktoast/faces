@@ -3,17 +3,17 @@ var pModel = window.pModel;
 
 var ctrackImage = document.getElementById('ctrack-image')
 var ctrackOverlay = document.getElementById('ctrack-overlay')
+var ctrackConvergence = document.getElementById('ctrack-convergence')
 var ctrackImageCtx = ctrackImage.getContext('2d')
 var ctrackOverlayCtx = ctrackOverlay.getContext('2d')
 
 var ctrack = new clm.tracker({
-  stopOnConvergence: true
+  scoreThreshold: 0.5,
+  stopOnConvergence: true,
+  useWebGL: true,
+  useWebWorkers: true
 })
 ctrack.init(pModel)
-
-var image = new Image()
-image.onload = onImageLoad
-image.src = './assets/mitch/001.jpg'
 
 var linesOuterFace = [
   [0, 7, 14, 0]
@@ -40,43 +40,76 @@ function drawDebugLines (ctx, color, lines, positions) {
   ctx.stroke()
 }
 
-function onImageLoad () {
-  ctrackImageCtx.drawImage(image, 0, 0, 600, 400)
-  searchFace()
-}
-
-function searchFace () {
-  ctrack.start(ctrackImage)
-  drawSearchProgress()
+var faceImages = [
+  './assets/mitch/001.jpg',
+  './assets/mitch/002.jpg',
+  './assets/mitch/003.jpg',
+  './assets/mitch/004.jpg'
+]
+var faceImageIndex = 0
+function loadNextFaceImage () {
+  var src = faceImages[faceImageIndex++]
+  if (!src) return
+  var image = new Image()
+  image.onload = function () {
+    ctrackImageCtx.clearRect(0, 0, 600, 400)
+    ctrackImageCtx.drawImage(image, 0, 0, 600, 400)
+    startSearchFace()
+  }
+  image.src = src
 }
 
 var drawSearchProgressReq
 function drawSearchProgress () {
+  var convergence = ctrack.getConvergence()
   var positions = ctrack.getCurrentPosition()
+
   ctrackOverlayCtx.clearRect(0, 0, 600, 400)
   if (positions) {
     ctrack.draw(ctrackOverlay)
     drawDebugLines(ctrackOverlayCtx, 'cyan', linesOuterFace, positions)
     drawDebugLines(ctrackOverlayCtx, 'magenta', linesCenterFace, positions)
   }
-  drawSearchProgressReq = requestAnimationFrame(drawSearchProgress)
+
+  ctrackConvergence.textContent = convergence.toFixed(3)
+  if (convergence < 100) {
+    stopSearchFace()
+  } else {
+    drawSearchProgressReq = requestAnimationFrame(drawSearchProgress)
+  }
+}
+
+function startSearchFace () {
+  console.time('searchFace')
+  ctrack.start(ctrackImage)
+  drawSearchProgress()
+}
+
+function stopSearchFace (err) {
+  if (err) console.error(err)
+  console.timeEnd('searchFace')
+  ctrack.stop()
+  ctrack.reset()
+  cancelAnimationFrame(drawSearchProgressReq)
+  drawSearchProgressReq = null
+  setTimeout(loadNextFaceImage, 100)
 }
 
 // detect if tracker fails to find a face
 document.addEventListener('clmtrackrNotFound', function (event) {
-  ctrack.stop()
-  console.warn('clmtrackrNotFound')
+  stopSearchFace('clmtrackrNotFound')
 }, false)
 
 // detect if tracker loses tracking of face
 document.addEventListener('clmtrackrLost', function (event) {
-  ctrack.stop()
-  console.warn('clmtrackrLost')
+  stopSearchFace('clmtrackrLost')
 }, false)
 
 // detect if tracker has converged
 document.addEventListener('clmtrackrConverged', function (event) {
-  cancelAnimationFrame(drawSearchProgressReq)
-  drawSearchProgressReq = null
-  console.log('clmtrackrConverged')
+  stopSearchFace()
 }, false)
+
+// --------------------------------------------------
+
+loadNextFaceImage()

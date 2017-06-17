@@ -2,6 +2,10 @@
 <html>
   <title>Face Melter</title>
   <style type="text/css">
+    * {
+      box-sizing: border-box;
+      margin: 0;
+    }
     #container {
       position: absolute;
       top: 0;
@@ -14,10 +18,20 @@
       top: 0;
       left: 0;
     }
-    #ctrack > canvas {
+    #ctrack-overlay {
       position: absolute;
       top: 0;
       left: 0;
+    }
+    #ctrack-convergence {
+      position: absolute;
+      top: 0;
+      right: 0;
+      display: block;
+      padding: 4px;
+      background: rgba(0,0,0,0.4);
+      color: #fff;
+      font: 16px/1 monospace;
     }
   </style>
 <body>
@@ -25,10 +39,11 @@
     <div id="ctrack">
       <canvas id="ctrack-image" width="600" height="400"></canvas>
       <canvas id="ctrack-overlay" width="600" height="400"></canvas>
+      <div id="ctrack-convergence"></div>
     </div>
   </div>
   <script src="./lib/clmtrackr/clmtrackr.js"></script>
-  <script src="./lib/clmtrackr/models/model_pca_20_svm.js"></script>
+  <script src="./lib/clmtrackr/models/model_pca_10_svm.js"></script>
   <script src="./static/bundle.js"></script>
 </body>
 </html>
