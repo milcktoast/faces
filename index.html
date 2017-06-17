@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <title>Face Melter</title>
+  <style type="text/css">
+    #container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #ctrack {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #ctrack > canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+  </style>
+<body>
+  <div id="container">
+    <div id="ctrack">
+      <canvas id="ctrack-image" width="600" height="400"></canvas>
+      <canvas id="ctrack-overlay" width="600" height="400"></canvas>
+    </div>
+  </div>
+  <script src="./lib/clmtrackr/clmtrackr.js"></script>
+  <script src="./lib/clmtrackr/models/model_pca_20_svm.js"></script>
+  <script src="./static/bundle.js"></script>
+</body>
+</html>
