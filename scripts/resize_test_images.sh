@@ -1,7 +1,7 @@
 rm -rf ./static
 mkdir ./static
 cp -Rf ./assets ./static
-cd ./static/assets/test
+cd ./static/assets/images/test
 
 mogrify -resize 600x400^ -gravity center -extent 600x400 *.jpg
 

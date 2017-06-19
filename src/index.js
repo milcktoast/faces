@@ -113,7 +113,7 @@ function loadNextFaceImage () {
     state.isRunning = false
     return
   }
-  var src = './static/assets/test/' + (++state.imageIndex) + '.jpg'
+  var src = './static/assets/images/test/' + (++state.imageIndex) + '.jpg'
   faceImage = new Image()
   faceImage.onload = function () {
     ctrackImageCtx.clearRect(0, 0, 600, 400)
