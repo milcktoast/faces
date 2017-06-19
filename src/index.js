@@ -21,8 +21,10 @@ var controls = oui.datoui({
 var state = {
   imageIndex: -1,
   imageCount: 17,
+  convergence: 0,
+  convergenceTarget: 8000,
   isRunning: true,
-  opacity: 0.6,
+  opacity: 0.05,
   composite: 'hard-light',
   width: 0,
   height: 0,
@@ -39,6 +41,16 @@ var state = {
   }
 }
 
+controls.add(state, 'convergence', {
+  control: oui.controls.Slider,
+  min: 0,
+  max: 20000
+})
+controls.add(state, 'convergenceTarget', {
+  control: oui.controls.Slider,
+  min: 0,
+  max: 20000
+})
 controls.add(state, 'imageIndex', {
   control: oui.controls.Slider,
   min: -1,
@@ -49,7 +61,7 @@ controls.add(state, 'opacity', {
   control: oui.controls.Slider,
   min: 0,
   max: 1,
-  step: 0.1
+  step: 0.05
 })
 controls.add(state, 'composite', {
   control: oui.controls.ComboBox,
@@ -124,8 +136,9 @@ function drawSearchProgress () {
     drawDebugLines(ctx, 'magenta', linesCenterFace, positions)
   }
 
+  state.convergence = convergence
   ctrackConvergence.textContent = convergence.toFixed(3)
-  if (convergence < 100) {
+  if (convergence < state.convergenceTarget) {
     stopSearchFace()
   } else {
     drawSearchProgressReq = requestAnimationFrame(drawSearchProgress)
