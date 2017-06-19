@@ -5,9 +5,14 @@
   "main": "src/index.js",
   "author": "Jay Weeks <jay.patrick.weeks@gmail.com> (https://jayweeks.com)",
   "license": "Artistic-2.0",
-  "dependencies": {},
+  "dependencies": {
+    "gl-matrix": "^2.3.2"
+  },
+  "devDependencies": {
+    "installify": "^1.1.0"
+  },
   "scripts": {
-    "start": "budo src/index.js:static/bundle.js --live",
+    "start": "budo src/index.js:static/bundle.js --live -- -t installify",
     "test": "echo \"Error: no test specified\" && exit 1"
   }
 }
