@@ -4,6 +4,8 @@ var pModel = window.pModel;
 var glMatrix = require('gl-matrix')
 var vec2 = glMatrix.vec2
 
+var oui = require('ouioui')
+
 var ctrackImage = document.getElementById('ctrack-image')
 var ctrackOverlay = document.getElementById('ctrack-overlay')
 var ctrackConvergence = document.getElementById('ctrack-convergence')
@@ -13,10 +15,52 @@ var ctrackOverlayCtx = ctrackOverlay.getContext('2d')
 var compositeImage = document.getElementById('composite-image')
 var compositeImageCtx = compositeImage.getContext('2d')
 
-var viewState = {
+var controls = oui.datoui({
+  label: 'Controls'
+})
+var state = {
+  imageIndex: -1,
+  imageCount: 17,
+  isRunning: true,
+  opacity: 0.6,
+  composite: 'hard-light',
   width: 0,
-  height: 0
+  height: 0,
+  clear: function () {
+    var ctx = compositeImageCtx
+    ctx.clearRect(0, 0, state.width, state.height)
+  },
+  restart: function () {
+    state.imageIndex = -1
+    if (!state.isRunning) {
+      state.isRunning = true
+      loadNextFaceImage()
+    }
+  }
 }
+
+controls.add(state, 'imageIndex', {
+  control: oui.controls.Slider,
+  min: -1,
+  max: state.imageCount - 1
+})
+controls.add(state, 'restart')
+controls.add(state, 'opacity', {
+  control: oui.controls.Slider,
+  min: 0,
+  max: 1,
+  step: 0.1
+})
+controls.add(state, 'composite', {
+  control: oui.controls.ComboBox,
+  options: [
+    'source-over','source-in', 'source-out', 'source-atop', 'destination-over',
+    'destination-in', 'destination-out', 'destination-atop', 'lighten', 'copy', 'xor',
+    'multiply', 'screen', 'overlay', 'darken', 'color-dodge', 'color-burn', 'hard-light',
+    'soft-light', 'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity'
+  ]
+})
+controls.add(state, 'clear')
 
 var ctrack = new clm.tracker({
   scoreThreshold: 0.5,
@@ -51,12 +95,13 @@ function drawDebugLines (ctx, color, lines, positions) {
   ctx.stroke()
 }
 
-var faceImagesCount = 17
-var faceImageIndex = -1
 var faceImage = null
 function loadNextFaceImage () {
-  if (faceImageIndex === faceImagesCount - 1) return
-  var src = './static/assets/test/' + (++faceImageIndex) + '.jpg'
+  if (state.imageIndex === state.imageCount - 1) {
+    state.isRunning = false
+    return
+  }
+  var src = './static/assets/test/' + (++state.imageIndex) + '.jpg'
   faceImage = new Image()
   faceImage.onload = function () {
     ctrackImageCtx.clearRect(0, 0, 600, 400)
@@ -107,8 +152,8 @@ function drawCurrentFace () {
   var positions = ctrack.getCurrentPosition()
   if (!positions) return
 
-  var width = viewState.width
-  var height = viewState.height
+  var width = state.width
+  var height = state.height
 
   var posA = positions[0]
   var posB = positions[7]
@@ -127,8 +172,8 @@ function drawCurrentFace () {
   ctx.scale(scale, scale)
   ctx.translate(-center[0], -center[1])
 
-  ctx.globalAlpha = 0.7
-  ctx.globalCompositeOperation = 'lighten'
+  ctx.globalAlpha = state.opacity
+  ctx.globalCompositeOperation = state.composite
   ctx.drawImage(ctrackImage, 0, 0, 600, 400)
   // ctx.drawImage(ctrackOverlay, 0, 0, 600, 400)
 
@@ -142,7 +187,7 @@ function startSearchFace () {
 }
 
 function stopSearchFace (err) {
-  if (err) console.warn(err, faceImageIndex)
+  if (err) console.warn(err, state.imageIndex)
   if (!err) drawCurrentFace()
   console.timeEnd('searchFace')
   ctrack.stop()
@@ -155,8 +200,8 @@ function stopSearchFace (err) {
 function resize () {
   var width = window.innerWidth
   var height = window.innerHeight
-  viewState.width = width
-  viewState.height = height
+  state.width = width
+  state.height = height
   resizeCanvas(compositeImage, width, height)
 }
 

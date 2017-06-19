@@ -6,7 +6,8 @@
   "author": "Jay Weeks <jay.patrick.weeks@gmail.com> (https://jayweeks.com)",
   "license": "Artistic-2.0",
   "dependencies": {
-    "gl-matrix": "^2.3.2"
+    "gl-matrix": "^2.3.2",
+    "ouioui": "0.0.22"
   },
   "devDependencies": {
     "installify": "^1.1.0"
