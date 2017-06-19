@@ -6,6 +6,7 @@ var vec2 = glMatrix.vec2
 
 var oui = require('ouioui')
 
+// TODO: Add ctrack image debug elements as controls component
 var ctrackImage = document.getElementById('ctrack-image')
 var ctrackOverlay = document.getElementById('ctrack-overlay')
 var ctrackConvergence = document.getElementById('ctrack-convergence')
@@ -41,29 +42,32 @@ var state = {
   }
 }
 
-controls.add(state, 'convergence', {
+var folderDetection = controls.addFolder({label: 'Face Detection', open: true})
+folderDetection.add(state, 'convergence', {
   control: oui.controls.Slider,
   min: 0,
   max: 20000
 })
-controls.add(state, 'convergenceTarget', {
+folderDetection.add(state, 'convergenceTarget', {
   control: oui.controls.Slider,
   min: 0,
   max: 20000
 })
-controls.add(state, 'imageIndex', {
+folderDetection.add(state, 'imageIndex', {
   control: oui.controls.Slider,
   min: -1,
   max: state.imageCount - 1
 })
-controls.add(state, 'restart')
-controls.add(state, 'opacity', {
+folderDetection.add(state, 'restart')
+
+var folderGraphics = controls.addFolder({label: 'Graphics', open: true})
+folderGraphics.add(state, 'opacity', {
   control: oui.controls.Slider,
   min: 0,
   max: 1,
   step: 0.05
 })
-controls.add(state, 'composite', {
+folderGraphics.add(state, 'composite', {
   control: oui.controls.ComboBox,
   options: [
     'source-over','source-in', 'source-out', 'source-atop', 'destination-over',
@@ -72,7 +76,7 @@ controls.add(state, 'composite', {
     'soft-light', 'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity'
   ]
 })
-controls.add(state, 'clear')
+folderGraphics.add(state, 'clear')
 
 var ctrack = new clm.tracker({
   scoreThreshold: 0.5,
