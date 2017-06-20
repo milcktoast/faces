@@ -1,7 +1,8 @@
 precision mediump float;
 
 uniform sampler2D u_color;
-uniform float u_radius;
+uniform float u_blurRadius;
+uniform vec2 u_blurCenter;
 uniform float u_offset;
 uniform vec2 u_resolution;
 
@@ -13,7 +14,7 @@ uniform vec3 u_vignetteColor;
 
 varying vec2 v_uv;
 
-#define ITERATIONS 13
+#define ITERATIONS 32
 
 vec3 sampleColor(vec2 uv);
 #pragma glslify: hashBlur = require(glsl-hash-blur, sample = sampleColor, iterations = ITERATIONS)
@@ -27,11 +28,11 @@ vec3 sampleColor(vec2 uv) {
 
 void main() {
   float aspect = u_resolution.x / u_resolution.y;
-  float rad = distance(v_uv, vec2(0.5));
+  float rad = distance(v_uv, u_blurCenter);
 
   float feather = smoothstep(0.0, 0.8, pow(rad, 2.0));
   float sampleFactor = smoothstep(0.0, 1.0, rad);
-  float sampleRadius = sampleFactor * (u_radius / u_resolution.x);
+  float sampleRadius = sampleFactor * (u_blurRadius / u_resolution.x);
 
   vec3 color = hashBlur(v_uv, sampleRadius, aspect, u_offset);
   gl_FragColor = vec4(mix(color, u_vignetteColor, feather), 1.0);

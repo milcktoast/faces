@@ -43,7 +43,9 @@ var state = {
   drawOpacity: 1,
   blendMode: blendModes.HARD_LIGHT,
   blendOpacity: 0.2,
+
   blurRadius: 16,
+  blurCenter: {x: 0.5, y: 0.5},
 
   clearColor: [24 / 255, 7 / 255, 31 / 255, 1],
   clearColorRgb: function () {
@@ -106,12 +108,18 @@ folderCompositor.add(state, 'blendMode', {
 folderCompositor.add(state, 'blurRadius', {
   control: oui.controls.Slider,
   min: 0,
-  max: 32,
+  max: 64,
   step: 2
+})
+folderCompositor.add(state, 'blurCenter', {
+  control: oui.controls.XYPad,
+  min: {x: 0, y: 0},
+  max: {x: '1.0', y: '1.0'},
+  open: true
 })
 folderCompositor.add(state, 'clearColor', {
   control: oui.controls.ColorPicker,
-  open: false
+  open: true
 })
 folderCompositor.add(state, 'clear')
 
@@ -291,7 +299,8 @@ var drawHashBlur = regl({
     u_blendMode: regl.prop('blendMode'),
     u_blendOpacity: regl.prop('blendOpacity'),
     u_vignetteColor: regl.prop('vignetteColor'),
-    u_radius: regl.prop('radius'),
+    u_blurCenter: regl.prop('blurCenter'),
+    u_blurRadius: regl.prop('blurRadius'),
     u_offset: regl.prop('offset'),
     u_resolution: regl.prop('resolution'),
   },
@@ -427,7 +436,8 @@ function drawCurrentFace () {
         vignetteColor: clearColor,
         blendMode: state.blendMode,
         blendOpacity: state.blendOpacity,
-        radius: state.blurRadius,
+        blurCenter: [state.blurCenter.x, 1 - state.blurCenter.y],
+        blurRadius: state.blurRadius,
         offset: Math.sin(tick * 0.1),
         resolution: [width, height]
       })
