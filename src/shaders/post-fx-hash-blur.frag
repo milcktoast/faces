@@ -26,9 +26,13 @@ vec3 sampleColor(vec2 uv) {
 }
 
 void main() {
-  float rad = distance(v_uv, vec2(0.5));
   float aspect = u_resolution.x / u_resolution.y;
-  float sampleRadius = rad * (u_radius / u_resolution.x);
+  float rad = distance(v_uv, vec2(0.5));
+
+  float feather = smoothstep(0.0, 0.8, pow(rad, 2.0));
+  float sampleFactor = smoothstep(0.0, 1.0, rad);
+  float sampleRadius = sampleFactor * (u_radius / u_resolution.x);
+
   vec3 color = hashBlur(v_uv, sampleRadius, aspect, u_offset);
-  gl_FragColor = vec4(mix(color, u_vignetteColor, rad), 1.0);
+  gl_FragColor = vec4(mix(color, u_vignetteColor, feather), 1.0);
 }

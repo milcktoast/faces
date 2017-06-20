@@ -6,6 +6,7 @@
   "author": "Jay Weeks <jay.patrick.weeks@gmail.com> (https://jayweeks.com)",
   "license": "Artistic-2.0",
   "dependencies": {
+    "colr": "^1.2.2",
     "gl-matrix": "^2.3.2",
     "glsl-blend": "^1.0.3",
     "glsl-hash-blur": "^1.0.3",

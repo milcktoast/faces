@@ -11,6 +11,7 @@ var vec2 = glMatrix.vec2
 var mat4 = glMatrix.mat4
 
 var oui = require('ouioui')
+var colr = require('colr')
 
 var scratchMat4 = mat4.create()
 
@@ -44,7 +45,10 @@ var state = {
   blendOpacity: 0.2,
   blurRadius: 16,
 
-  clearColor: [24 / 255, 7 / 255, 31 / 255],
+  clearColor: [24 / 255, 7 / 255, 31 / 255, 1],
+  clearColorRgb: function () {
+    return state.clearColor.slice(0, 3)
+  },
 
   width: 0,
   height: 0,
@@ -105,7 +109,19 @@ folderCompositor.add(state, 'blurRadius', {
   max: 32,
   step: 2
 })
+folderCompositor.add(state, 'clearColor', {
+  control: oui.controls.ColorPicker,
+  open: false
+})
 folderCompositor.add(state, 'clear')
+
+function colrHsvToRgb (value) {
+  var out = colr.fromHsvObject(value).toRgbArray()
+  out[0] /= 255
+  out[1] /= 255
+  out[2] /= 255
+  return out
+}
 
 var ctrack = new clm.tracker({
   scoreThreshold: 0.5,
@@ -381,6 +397,7 @@ function drawCurrentFace () {
   var width = state.width
   var height = state.height
   var tick = state.tick++
+  var clearColor = state.clearColorRgb()
 
   transformCurrentFace(transform, positions, image)
   quadTexture({data: image})
@@ -391,7 +408,7 @@ function drawCurrentFace () {
   // sceneBuffers.swap()
   setupFBO({fbo: sceneBuffers.getWrite()}, function () {
     drawRect({
-      color: state.clearColor
+      color: clearColor
     })
     drawTexture({
       transform: transform,
@@ -407,7 +424,7 @@ function drawCurrentFace () {
       drawHashBlur({
         color: sceneBuffers.getWrite(),
         background: fxBuffers.getRead(),
-        vignetteColor: state.clearColor,
+        vignetteColor: clearColor,
         blendMode: state.blendMode,
         blendOpacity: state.blendOpacity,
         radius: state.blurRadius,
@@ -423,7 +440,7 @@ function drawCurrentFace () {
 
 function clearScene () {
   drawRect({
-    color: state.clearColor
+    color: state.clearColorRgb()
   })
   sceneBuffers.clear()
   fxBuffers.clear()
