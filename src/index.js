@@ -1,10 +1,17 @@
 var clm = window.clm;
 var pModel = window.pModel;
 
+var createRegl = require('regl')
+var glslify = require('glslify')
+var quad = require('glsl-quad')
+
 var glMatrix = require('gl-matrix')
 var vec2 = glMatrix.vec2
+var mat4 = glMatrix.mat4
 
 var oui = require('ouioui')
+
+var scratchMat4 = mat4.create()
 
 // TODO: Add ctrack image debug elements as controls component
 var ctrackImage = document.getElementById('ctrack-image')
@@ -13,8 +20,13 @@ var ctrackConvergence = document.getElementById('ctrack-convergence')
 var ctrackImageCtx = ctrackImage.getContext('2d')
 var ctrackOverlayCtx = ctrackOverlay.getContext('2d')
 
-var compositeImage = document.getElementById('composite-image')
-var compositeImageCtx = compositeImage.getContext('2d')
+var compositeContainer = document.getElementById('composite')
+var regl = createRegl({
+  container: compositeContainer,
+  attributes: {
+    preserveDrawingBuffer: true
+  }
+})
 
 var controls = oui.datoui({
   label: 'Controls'
@@ -22,16 +34,23 @@ var controls = oui.datoui({
 var state = {
   imageIndex: -1,
   imageCount: 17,
+
   convergence: 0,
   convergenceTarget: 8000,
   isRunning: true,
+
   opacity: 0.05,
   composite: 'hard-light',
+
   width: 0,
   height: 0,
+  projection: mat4.create(),
+  view: mat4.create(),
+
   clear: function () {
-    var ctx = compositeImageCtx
-    ctx.clearRect(0, 0, state.width, state.height)
+    regl.clear({
+      color: [1, 1, 1, 1]
+    })
   },
   restart: function () {
     state.imageIndex = -1
@@ -163,6 +182,7 @@ function getCentroid (out, points) {
   return out
 }
 
+/*
 function drawCurrentFace () {
   var ctx = compositeImageCtx
   var image = faceImage
@@ -196,6 +216,102 @@ function drawCurrentFace () {
 
   ctx.restore()
 }
+*/
+
+var quadTransform = mat4.create()
+var quadTexture = regl.texture({
+  width: 600,
+  height: 400,
+  min: 'linear',
+  mag: 'linear'
+})
+var drawTexture = regl({
+  frag: glslify('./shaders/composite-quad.frag'),
+  vert: glslify('./shaders/composite-quad.vert'),
+  attributes: {
+    a_position: quad.verts,
+    a_uv: quad.uvs
+  },
+  elements: quad.indices,
+  uniforms: {
+    u_texture: regl.prop('texture'),
+    u_projection: function () {
+      return state.projection
+    },
+    u_view: function () {
+      return state.view
+    },
+    u_model: regl.prop('transform'),
+    u_size: regl.prop('size'),
+    u_opacity: regl.prop('opacity')
+  },
+  blend: {
+    enable: true,
+    func: {
+      srcRGB: 'src alpha',
+      srcAlpha: 1,
+      dstRGB: 'one minus src alpha',
+      dstAlpha: 1
+    },
+    equation: {
+      rgb: 'add',
+      alpha: 'add'
+    }
+  },
+  depth: {
+    enable: false
+  }
+});
+
+function drawCurrentFace () {
+  var positions = ctrack.getCurrentPosition()
+  var image = ctrackImage
+  var texture = quadTexture
+  var transform = quadTransform
+  if (!positions) return
+
+  var width = state.width
+  var height = state.height
+
+  var posA = positions[0]
+  var posB = positions[7]
+  var posC = positions[14]
+
+  var center = getCentroid([], [posA, posB, posC])
+  var angleAC = getSegmentAngle(posA, posC)
+  var lengthAC = vec2.dist(posA, posC)
+
+  var targetLengthAC = width * 0.3
+  var scale = targetLengthAC / lengthAC
+
+  mat4.identity(transform, transform)
+
+  mat4.identity(scratchMat4, scratchMat4)
+  mat4.rotateZ(transform, transform, -angleAC)
+  mat4.multiply(transform, transform, scratchMat4)
+
+  mat4.identity(scratchMat4, scratchMat4)
+  mat4.scale(scratchMat4, scratchMat4, [scale, scale, scale])
+  mat4.multiply(transform, transform, scratchMat4)
+
+  mat4.identity(scratchMat4, scratchMat4)
+  mat4.translate(scratchMat4, scratchMat4, [image.width / 2, image.height / 2, 0])
+  mat4.multiply(transform, transform, scratchMat4)
+
+  mat4.identity(scratchMat4, scratchMat4)
+  mat4.translate(scratchMat4, scratchMat4, [-center[0], -center[1], 0])
+  mat4.multiply(transform, transform, scratchMat4)
+
+  quadTexture({
+    data: image
+  })
+  drawTexture({
+    transform: transform,
+    texture: texture,
+    size: [image.width, image.height],
+    opacity: state.opacity
+  })
+}
 
 function startSearchFace () {
   console.time('searchFace')
@@ -219,14 +335,10 @@ function resize () {
   var height = window.innerHeight
   state.width = width
   state.height = height
-  resizeCanvas(compositeImage, width, height)
-}
-
-function resizeCanvas (canvas, width, height) {
-  canvas.width = width
-  canvas.height = height
-  canvas.style.width = width + 'px'
-  canvas.style.height = height + 'px'
+  mat4.ortho(state.projection,
+    -width / 2, width / 2,
+    height / 2, -height / 2,
+    0, 1)
 }
 
 // detect if tracker fails to find a face
@@ -244,7 +356,7 @@ document.addEventListener('clmtrackrConverged', function (event) {
   stopSearchFace()
 }, false)
 
-window.addEventListener('resize', resize)
+window.addEventListener('resize', resize, false)
 
 // --------------------------------------------------
 

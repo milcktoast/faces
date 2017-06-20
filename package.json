@@ -7,13 +7,16 @@
   "license": "Artistic-2.0",
   "dependencies": {
     "gl-matrix": "^2.3.2",
-    "ouioui": "0.0.22"
+    "glsl-quad": "^1.0.0",
+    "ouioui": "0.0.22",
+    "regl": "^1.3.0"
   },
   "devDependencies": {
+    "glslify": "^6.1.0",
     "installify": "^1.1.0"
   },
   "scripts": {
-    "start": "budo src/index.js:static/bundle.js --live -- -t installify",
+    "start": "budo src/index.js:static/bundle.js --live -- -t installify -t glslify",
     "test": "echo \"Error: no test specified\" && exit 1"
   }
 }

@@ -48,7 +48,7 @@
       width: 100%;
       height: 100%;
     }
-    #composite-image {
+    #composite > canvas {
       position: absolute;
       top: 0;
       left: 0;
@@ -56,9 +56,7 @@
   </style>
 <body>
   <div id="container">
-    <div id="composite">
-      <canvas id="composite-image"></canvas>
-    </div>
+    <div id="composite"></div>
     <div id="ctrack">
       <canvas id="ctrack-image" width="600" height="400"></canvas>
       <canvas id="ctrack-overlay" width="600" height="400"></canvas>
