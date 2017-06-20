@@ -39,10 +39,12 @@ var state = {
   convergenceTarget: 8000,
   isRunning: true,
 
-  opacity: 0.05,
+  drawOpacity: 1,
   blendMode: blendModes.HARD_LIGHT,
-  blendOpacity: 0.9,
-  blurRadius: 12,
+  blendOpacity: 0.2,
+  blurRadius: 16,
+
+  clearColor: [24 / 255, 7 / 255, 31 / 255],
 
   width: 0,
   height: 0,
@@ -62,7 +64,7 @@ var state = {
   }
 }
 
-var folderDetection = controls.addFolder({label: 'Face Detection', open: true})
+var folderDetection = controls.addFolder({label: 'Face Detector', open: true})
 folderDetection.add(state, 'convergence', {
   control: oui.controls.Slider,
   min: 0,
@@ -80,18 +82,30 @@ folderDetection.add(state, 'imageIndex', {
 })
 folderDetection.add(state, 'restart')
 
-var folderGraphics = controls.addFolder({label: 'Graphics', open: true})
-folderGraphics.add(state, 'opacity', {
+var folderCompositor = controls.addFolder({label: 'Compositor', open: true})
+folderCompositor.add(state, 'drawOpacity', {
   control: oui.controls.Slider,
   min: 0,
   max: 1,
   step: 0.05
 })
-folderGraphics.add(state, 'blendMode', {
+folderCompositor.add(state, 'blendOpacity', {
+  control: oui.controls.Slider,
+  min: 0,
+  max: 1,
+  step: 0.05
+})
+folderCompositor.add(state, 'blendMode', {
   control: oui.controls.ComboBox,
   options: blendModes
 })
-folderGraphics.add(state, 'clear')
+folderCompositor.add(state, 'blurRadius', {
+  control: oui.controls.Slider,
+  min: 0,
+  max: 32,
+  step: 2
+})
+folderCompositor.add(state, 'clear')
 
 var ctrack = new clm.tracker({
   scoreThreshold: 0.5,
@@ -217,7 +231,8 @@ function createPostBuffers () {
   }
 }
 
-var postBuffers = createPostBuffers()
+var sceneBuffers = createPostBuffers()
+var fxBuffers = createPostBuffers()
 var setupFBO = regl({
   framebuffer: regl.prop('fbo')
 })
@@ -238,6 +253,9 @@ var drawRect = regl({
     a_position: [-4, -4, 4, -4, 0, 4]
   },
   count: 3,
+  uniforms: {
+    u_color: regl.prop('color')
+  },
   blend: {
     enable: true,
     equation: 'add',
@@ -246,31 +264,28 @@ var drawRect = regl({
       dst: 'one minus src alpha'
     }
   },
-  depth: { enable: false },
-  uniforms: {
-    u_color: regl.prop('color')
-  }
+  depth: {enable: false}
 })
 
 var drawHashBlur = regl({
   frag: glslify('./shaders/post-fx-hash-blur.frag'),
   uniforms: {
-    color: regl.prop('color'),
-    radius: regl.prop('radius'),
-    offset: regl.prop('offset'),
-    resolution: function (context, params) {
-      return [params.width, params.height]
-    }
-  }
+    u_color: regl.prop('color'),
+    u_background: regl.prop('background'),
+    u_blendMode: regl.prop('blendMode'),
+    u_blendOpacity: regl.prop('blendOpacity'),
+    u_vignetteColor: regl.prop('vignetteColor'),
+    u_radius: regl.prop('radius'),
+    u_offset: regl.prop('offset'),
+    u_resolution: regl.prop('resolution'),
+  },
+  depth: {enable: false}
 })
 
 var drawScreen = regl({
   frag: glslify('./shaders/post-fx.frag'),
   uniforms: {
-    u_color: regl.prop('color'),
-    u_background: regl.prop('background'),
-    u_blendMode: regl.prop('blendMode'),
-    u_blendOpacity: regl.prop('blendOpacity')
+    u_color: regl.prop('color')
   }
 })
 
@@ -356,13 +371,6 @@ function transformCurrentFace (transform, positions, image) {
   mat4.multiply(transform, transform, scratchMat4)
 }
 
-var clearRectParams = {
-  color: [24 / 255, 7 / 255, 31 / 255, 1]
-}
-var fadeRectParams = {
-  color: [0.06, 0.01, 0.08, 0.05]
-}
-
 function drawCurrentFace () {
   var positions = ctrack.getCurrentPosition()
   if (!positions) return
@@ -374,49 +382,54 @@ function drawCurrentFace () {
   var height = state.height
   var tick = state.tick++
 
-  var sceneBuffer = postBuffers.getWrite(width, height)
-  var fxBuffer = postBuffers.getRead(width, height)
-
   transformCurrentFace(transform, positions, image)
   quadTexture({data: image})
 
-  setupFBO({fbo: sceneBuffer}, function () {
-    if (tick === 1) {
-      // Fixes rect overlay ghosting artifacts
-      drawRect(clearRectParams)
-    }
-    drawRect(fadeRectParams)
+  sceneBuffers.resize(width, height)
+  fxBuffers.resize(width, height)
+
+  // sceneBuffers.swap()
+  setupFBO({fbo: sceneBuffers.getWrite()}, function () {
+    drawRect({
+      color: state.clearColor
+    })
     drawTexture({
       transform: transform,
       texture: texture,
       size: [image.width, image.height],
-      opacity: state.opacity
+      opacity: state.drawOpacity
     })
   })
 
   setupDrawScreen(function () {
-    setupFBO({fbo: fxBuffer}, function () {
+    fxBuffers.swap()
+    setupFBO({fbo: fxBuffers.getWrite()}, function () {
       drawHashBlur({
-        color: sceneBuffer,
+        color: sceneBuffers.getWrite(),
+        background: fxBuffers.getRead(),
+        vignetteColor: state.clearColor,
+        blendMode: state.blendMode,
+        blendOpacity: state.blendOpacity,
         radius: state.blurRadius,
-        offset: Math.sin(tick * 0.001),
-        width: width,
-        height: height
+        offset: Math.sin(tick * 0.1),
+        resolution: [width, height]
       })
     })
     drawScreen({
-      color: sceneBuffer,
-      background: fxBuffer,
-      blendMode: state.blendMode,
-      blendOpacity: state.blendOpacity
+      color: fxBuffers.getWrite()
     })
   })
 }
 
 function clearScene () {
-  drawRect(clearRectParams)
-  postBuffers.clear()
+  drawRect({
+    color: state.clearColor
+  })
+  sceneBuffers.clear()
+  fxBuffers.clear()
 }
+
+// Face search flow
 
 function startSearchFace () {
   console.time('searchFace')
