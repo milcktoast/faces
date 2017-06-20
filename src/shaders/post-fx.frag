@@ -1,11 +1,15 @@
 precision mediump float;
-uniform sampler2D color;
-uniform sampler2D bloom;
-uniform float bloomIntensity;
-varying vec2 uv;
+
+#pragma glslify: blend = require(glsl-blend/all)
+
+uniform sampler2D u_color;
+uniform sampler2D u_background;
+uniform int u_blendMode;
+uniform float u_blendOpacity;
+varying vec2 v_uv;
 
 void main() {
-  vec3 fColor = texture2D(color, uv).rgb;
-  vec3 fBloom = texture2D(bloom, uv).rgb * bloomIntensity;
-  gl_FragColor = vec4(fColor + fBloom, 1.0);
+  vec3 color = texture2D(u_color, v_uv).rgb;
+  vec3 background = texture2D(u_background, v_uv).rgb;
+  gl_FragColor = vec4(blend(u_blendMode, background, color, u_blendOpacity), 1.0);
 }

@@ -4,6 +4,7 @@ var pModel = window.pModel;
 var createRegl = require('regl')
 var glslify = require('glslify')
 var quad = require('glsl-quad')
+var blendModes = require('./constants/blend-modes')
 
 var glMatrix = require('gl-matrix')
 var vec2 = glMatrix.vec2
@@ -24,7 +25,7 @@ var compositeContainer = document.getElementById('composite')
 var regl = createRegl({
   container: compositeContainer,
   attributes: {
-    preserveDrawingBuffer: true
+    preserveDrawingBuffer: false
   }
 })
 
@@ -40,17 +41,18 @@ var state = {
   isRunning: true,
 
   opacity: 0.05,
-  composite: 'hard-light',
+  blendMode: blendModes.HARD_LIGHT,
+  blendOpacity: 0.9,
+  blurRadius: 12,
 
   width: 0,
   height: 0,
   projection: mat4.create(),
   view: mat4.create(),
+  tick: 0,
 
   clear: function () {
-    regl.clear({
-      color: [1, 1, 1, 1]
-    })
+    clearScene()
   },
   restart: function () {
     state.imageIndex = -1
@@ -86,14 +88,9 @@ folderGraphics.add(state, 'opacity', {
   max: 1,
   step: 0.05
 })
-folderGraphics.add(state, 'composite', {
+folderGraphics.add(state, 'blendMode', {
   control: oui.controls.ComboBox,
-  options: [
-    'source-over','source-in', 'source-out', 'source-atop', 'destination-over',
-    'destination-in', 'destination-out', 'destination-atop', 'lighten', 'copy', 'xor',
-    'multiply', 'screen', 'overlay', 'darken', 'color-dodge', 'color-burn', 'hard-light',
-    'soft-light', 'difference', 'exclusion', 'hue', 'saturation', 'color', 'luminosity'
-  ]
+  options: blendModes
 })
 folderGraphics.add(state, 'clear')
 
@@ -182,41 +179,104 @@ function getCentroid (out, points) {
   return out
 }
 
-/*
-function drawCurrentFace () {
-  var ctx = compositeImageCtx
-  var image = faceImage
-  var positions = ctrack.getCurrentPosition()
-  if (!positions) return
+// Post Processing
 
-  var width = state.width
-  var height = state.height
-
-  var posA = positions[0]
-  var posB = positions[7]
-  var posC = positions[14]
-
-  var center = getCentroid([], [posA, posB, posC])
-  var angleAC = getSegmentAngle(posA, posC)
-  var lengthAC = vec2.dist(posA, posC)
-
-  var targetLengthAC = width * 0.25
-  var scale = targetLengthAC / lengthAC
-
-  ctx.save()
-  ctx.translate(width / 2, height / 2)
-  ctx.rotate(-angleAC)
-  ctx.scale(scale, scale)
-  ctx.translate(-center[0], -center[1])
-
-  ctx.globalAlpha = state.opacity
-  ctx.globalCompositeOperation = state.composite
-  ctx.drawImage(ctrackImage, 0, 0, 600, 400)
-  // ctx.drawImage(ctrackOverlay, 0, 0, 600, 400)
-
-  ctx.restore()
+function createPostBuffers () {
+  var buffers = {
+    read: createBuffer(),
+    write: createBuffer()
+  }
+  function createBuffer () {
+    return regl.framebuffer({
+      color: regl.texture({wrap: 'clamp'}),
+      depth: false
+    })
+  }
+  function getBuffer (name) {
+    return function (width, height) {
+      var buffer = buffers[name]
+      if (width && height) buffer.resize(width, height)
+      return buffer
+    }
+  }
+  return {
+    getRead: getBuffer('read'),
+    getWrite: getBuffer('write'),
+    resize: function (width, height) {
+      buffers.read.resize(width, height)
+      buffers.write.resize(width, height)
+    },
+    swap: function () {
+      var read = buffers.read
+      var write = buffers.write
+      buffers.read = write
+      buffers.write = read
+    },
+    clear: function () {
+      buffers.read.resize(1, 1)
+      buffers.write.resize(1, 1)
+    }
+  }
 }
-*/
+
+var postBuffers = createPostBuffers()
+var setupFBO = regl({
+  framebuffer: regl.prop('fbo')
+})
+
+var setupDrawScreen = regl({
+  vert: glslify('./shaders/post-fx.vert'),
+  attributes: {
+    a_position: [-4, -4, 4, -4, 0, 4]
+  },
+  count: 3,
+  depth: { enable: false }
+})
+
+var drawRect = regl({
+  frag: glslify('./shaders/basic.frag'),
+  vert: glslify('./shaders/post-fx.vert'),
+  attributes: {
+    a_position: [-4, -4, 4, -4, 0, 4]
+  },
+  count: 3,
+  blend: {
+    enable: true,
+    equation: 'add',
+    func: {
+      src: 'src alpha',
+      dst: 'one minus src alpha'
+    }
+  },
+  depth: { enable: false },
+  uniforms: {
+    u_color: regl.prop('color')
+  }
+})
+
+var drawHashBlur = regl({
+  frag: glslify('./shaders/post-fx-hash-blur.frag'),
+  uniforms: {
+    color: regl.prop('color'),
+    radius: regl.prop('radius'),
+    offset: regl.prop('offset'),
+    resolution: function (context, params) {
+      return [params.width, params.height]
+    }
+  }
+})
+
+var drawScreen = regl({
+  frag: glslify('./shaders/post-fx.frag'),
+  uniforms: {
+    u_color: regl.prop('color'),
+    u_background: regl.prop('background'),
+    u_blendMode: regl.prop('blendMode'),
+    u_blendOpacity: regl.prop('blendOpacity')
+  }
+})
+
+// Sprite quad
 
 var quadTransform = mat4.create()
 var quadTexture = regl.texture({
@@ -263,13 +323,7 @@ var drawTexture = regl({
   }
 });
 
-function drawCurrentFace () {
-  var positions = ctrack.getCurrentPosition()
-  var image = ctrackImage
-  var texture = quadTexture
-  var transform = quadTransform
-  if (!positions) return
-
+function transformCurrentFace (transform, positions, image) {
   var width = state.width
   var height = state.height
 
@@ -284,6 +338,7 @@ function drawCurrentFace () {
   var targetLengthAC = width * 0.3
   var scale = targetLengthAC / lengthAC
 
+  // TODO: Optimize transforms
   mat4.identity(transform, transform)
 
   mat4.identity(scratchMat4, scratchMat4)
@@ -301,16 +356,68 @@ function drawCurrentFace () {
   mat4.identity(scratchMat4, scratchMat4)
   mat4.translate(scratchMat4, scratchMat4, [-center[0], -center[1], 0])
   mat4.multiply(transform, transform, scratchMat4)
+}
 
-  quadTexture({
-    data: image
+var clearRectParams = {
+  color: [24 / 255, 7 / 255, 31 / 255, 1]
+}
+var fadeRectParams = {
+  color: [0.06, 0.01, 0.08, 0.05]
+}
+
+function drawCurrentFace () {
+  var positions = ctrack.getCurrentPosition()
+  if (!positions) return
+
+  var image = ctrackImage
+  var texture = quadTexture
+  var transform = quadTransform
+  var width = state.width
+  var height = state.height
+  var tick = state.tick++
+
+  var sceneBuffer = postBuffers.getWrite(width, height)
+  var fxBuffer = postBuffers.getRead(width, height)
+
+  transformCurrentFace(transform, positions, image)
+  quadTexture({data: image})
+
+  setupFBO({fbo: sceneBuffer}, function () {
+    if (tick === 1) {
+      // Fixes rect overlay ghosting artifacts
+      drawRect(clearRectParams)
+    }
+    drawRect(fadeRectParams)
+    drawTexture({
+      transform: transform,
+      texture: texture,
+      size: [image.width, image.height],
+      opacity: state.opacity
+    })
   })
-  drawTexture({
-    transform: transform,
-    texture: texture,
-    size: [image.width, image.height],
-    opacity: state.opacity
+
+  setupDrawScreen(function () {
+    setupFBO({fbo: fxBuffer}, function () {
+      drawHashBlur({
+        color: sceneBuffer,
+        radius: state.blurRadius,
+        offset: Math.sin(tick * 0.001),
+        width: width,
+        height: height
+      })
+    })
+    drawScreen({
+      color: sceneBuffer,
+      background: fxBuffer,
+      blendMode: state.blendMode,
+      blendOpacity: state.blendOpacity
+    })
   })
+}
+
+function clearScene () {
+  drawRect(clearRectParams)
+  postBuffers.clear()
 }
 
 function startSearchFace () {
@@ -361,4 +468,5 @@ window.addEventListener('resize', resize, false)
 // --------------------------------------------------
 
 resize()
+clearScene()
 loadNextFaceImage()
