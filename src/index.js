@@ -17,7 +17,6 @@ var scratchMat4 = mat4.create()
 // TODO: Add ctrack image debug elements as controls component
 var ctrackImage = document.getElementById('ctrack-image')
 var ctrackOverlay = document.getElementById('ctrack-overlay')
-var ctrackConvergence = document.getElementById('ctrack-convergence')
 var ctrackImageCtx = ctrackImage.getContext('2d')
 var ctrackOverlayCtx = ctrackOverlay.getContext('2d')
 
@@ -157,7 +156,6 @@ function drawSearchProgress () {
   }
 
   state.convergence = convergence
-  ctrackConvergence.textContent = convergence.toFixed(3)
   if (convergence < state.convergenceTarget) {
     stopSearchFace()
   } else {
