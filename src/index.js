@@ -41,7 +41,6 @@ var controls = oui.datoui({
   label: 'Settings'
 })
 
-// TODO: Add image size setting
 var state = {
   searchPhrase: decodeSearchFromUrl() || '--',
   searchSize: sizeSuffixes['800'],
@@ -71,6 +70,9 @@ var state = {
   blurRadius: 16,
   blurCenter: {x: 0.5, y: 0.45},
 
+  exportFormat: 'image/jpeg',
+  exportQuality: 85,
+
   clearColor: [24 / 255, 7 / 255, 31 / 255, 1],
   clearColorRgb: function () {
     return state.clearColor.slice(0, 3)
@@ -94,6 +96,9 @@ var state = {
       state.isRunning = true
       loadNextFaceImage()
     }
+  },
+  export: function () {
+    exportAsImage()
   }
 }
 
@@ -189,6 +194,25 @@ folderCompositor.add(state, 'clearColor', {
   open: true
 })
 folderCompositor.add(state, 'clear')
+
+var folderExporter = controls.addFolder({
+  label: 'Exporter',
+  open: true
+})
+folderExporter.add(state, 'exportFormat', {
+  control: oui.controls.ComboBox,
+  options: {
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'webp': 'image/webp'
+  }
+})
+folderExporter.add(state, 'exportQuality', {
+  control: oui.controls.Slider,
+  min: 1,
+  max: 100
+})
+folderExporter.add(state, 'export')
 
 // ..................................................
 // Face detection
@@ -679,6 +703,23 @@ function clearScene () {
 function padLeft (str, fill, length) {
   while (str.length < length) str = fill + str
   return str
+}
+
+// ..................................................
+// Export
+
+function exportAsImage () {
+  var canvas = compositeContainer.querySelector('canvas')
+  regl.clear({
+    color: state.clearColor
+  })
+  setupDrawScreen(function () {
+    drawScreen({
+      color: fxBuffers.getWrite()
+    })
+  })
+  window.open(canvas.toDataURL(
+    state.exportFormat, state.exportQuality / 100))
 }
 
 // ..................................................
