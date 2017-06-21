@@ -9,7 +9,6 @@
     "gl-matrix": "^2.3.2",
     "glsl-blend": "^1.0.3",
     "glsl-hash-blur": "^1.0.3",
-    "glsl-quad": "^1.0.0",
     "ouioui": "github:jpweeks/oui#v0.0.22-a",
     "regl": "^1.3.0"
   },

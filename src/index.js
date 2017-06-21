@@ -3,12 +3,12 @@ var pModel = window.pModel;
 
 var createRegl = require('regl')
 var glslify = require('glslify')
-var quad = require('glsl-quad')
 var glMatrix = require('gl-matrix')
 var vec2 = glMatrix.vec2
 var mat4 = glMatrix.mat4
 var oui = require('ouioui')
 
+var quad = require('./utils/quad')
 var blendModes = require('./constants/blend-modes')
 var sizeSuffixes = require('./constants/size-suffixes')
 
