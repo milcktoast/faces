@@ -348,7 +348,11 @@ function searchPhotos () {
 }
 
 function hashSearchState () {
-  return state.searchPhrase + '_' + state.searchMaxResults
+  return [
+    state.searchPhrase,
+    state.searchMaxResults,
+    state.searchSize
+  ].join('_')
 }
 
 function loadNextFaceImage () {
@@ -690,11 +694,22 @@ function drawCurrentFace () {
   })
 }
 
+function drawCurrentScene () {
+  regl.clear({
+    color: state.clearColor
+  })
+  setupDrawScreen(function () {
+    drawScreen({
+      color: fxBuffers.getWrite()
+    })
+  })
+}
+
 function clearScene () {
   state._drawnFaces = 0
   state.drawnFaces = '----'
-  drawRect({
-    color: state.clearColorRgb()
+  regl.clear({
+    color: state.clearColor
   })
   sceneBuffers.clear()
   fxBuffers.clear()
@@ -710,14 +725,7 @@ function padLeft (str, fill, length) {
 
 function exportAsImage () {
   var canvas = compositeContainer.querySelector('canvas')
-  regl.clear({
-    color: state.clearColor
-  })
-  setupDrawScreen(function () {
-    drawScreen({
-      color: fxBuffers.getWrite()
-    })
-  })
+  drawCurrentScene()
   window.open(canvas.toDataURL(
     state.exportFormat, state.exportQuality / 100))
 }
