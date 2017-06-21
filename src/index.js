@@ -42,6 +42,12 @@ var controls = oui.datoui({
   label: 'Settings'
 })
 var state = {
+  searchPhrase: decodeSearchFromUrl() || '--',
+  searchMaxResults: 100,
+  searchProgress: 0,
+  searchResults: '--',
+  isSearching: false,
+
   activeImage: null,
   images: null,
   imageIndex: -1,
@@ -52,9 +58,9 @@ var state = {
   convergenceTarget: 10,
   showComputeCanvas: true,
   autoRestart: false,
-  isRunning: true,
+  isRunning: false,
   _drawnFaces: 0,
-  drawnFaces: '--',
+  drawnFaces: '----',
 
   drawOpacity: 1,
   blendMode: blendModes.HARD_LIGHT,
@@ -74,6 +80,9 @@ var state = {
   view: mat4.create(),
   tick: 0,
 
+  search: function () {
+    searchPhotosAndLoad()
+  },
   clear: function () {
     clearScene()
   },
@@ -86,9 +95,32 @@ var state = {
   }
 }
 
+var folderSearcher = controls.addFolder({
+  label: 'Photo Searcher',
+  open: true
+})
+folderSearcher.add(state, 'searchPhrase', {
+  onSubmit: function () {
+    searchPhotosAndLoad()
+  }
+})
+folderSearcher.add(state, 'searchMaxResults', {
+  control: oui.controls.Slider,
+  min: 10,
+  max: 500,
+  step: 10
+})
+folderSearcher.add(state, 'searchProgress', {
+  control: oui.controls.Slider,
+  min: 0,
+  max: 1
+})
+folderSearcher.add(state, 'searchResults')
+folderSearcher.add(state, 'search')
+
 var folderDetector = controls.addFolder({
   label: 'Face Detector',
-  open: true
+  open: false
 })
 folderDetector.add(state, 'showComputeCanvas', {
   onChange: function (shouldShow) {
@@ -214,15 +246,84 @@ function drawSearchProgress () {
 // Fetch, load face image candidates
 
 function searchPhotosAndLoad () {
+  if (state.isSearching) return
+  state.isSearching = true
+  state.isRunning = false
+  state.searchProgress = 0
+  state.searchResults = '--'
+  syncSearchUrl()
+  trickleSearchProgress()
   searchPhotos().then(function (data) {
     state.images = data.images
     state.imageCount = data.images.length
+    state.searchProgress = 1
+    state.searchResults = state.imageCount + ' / ' + data.total
+    state.isSearching = false
+    state.isRunning = true
     loadNextFaceImage()
   })
 }
 
+function decodeSearchFromUrl () {
+  var urlSearch = location.search
+  if (urlSearch.indexOf('s=') === -1) return null
+  return urlSearch.replace('?s=', '').replace(/\+/g, ' ')
+}
+
+function syncSearchUrl () {
+  var phrase = state.searchPhrase.replace(/\s/g, '+')
+  var nextUrl = '?s=' + phrase
+  if (nextUrl !== location.search) {
+    history.pushState({}, '', nextUrl)
+  }
+}
+
+// TODO: Select photos from multiple size candidates
+var searchPhotosState = {}
+function searchPhotos () {
+  var nextSearchHash = hashSearchState()
+  if (nextSearchHash === searchPhotosState.hash) {
+    return Promise.resolve(searchPhotosState.results)
+  }
+  var size = sizeWithSuffix(sizeSuffixes.M_800)
+  var searchUrl = 'https://api.flickr.com/services/rest/?' +
+    serializeSearchParams({
+      method: 'flickr.photos.search',
+      api_key: '0fa09f66a4b7b225cbf8b7073b125c93',
+      text: state.searchPhrase,
+      sort: 'relevance',
+      license: '1,2,9,10', // modifications allowed
+      safe_search: '1',
+      extras: size.url,
+      per_page: state.searchMaxResults,
+      format: 'json',
+      nojsoncallback: '1'
+    })
+  return fetch(searchUrl)
+    .then(resToJson)
+    .then(function (json) {
+      var photos = json.photos
+      var total = parseInt(photos.total, 10)
+      var images = photos.photo
+        .map(mapPhoto.bind(null, size))
+        .filter(notNull)
+      var results = {
+        total: total,
+        images: images
+      }
+      searchPhotosState.hash = nextSearchHash
+      searchPhotosState.results = results
+      return results
+    })
+}
+
+function hashSearchState () {
+  return state.searchPhrase + '_' + state.searchMaxResults
+}
+
 function loadNextFaceImage () {
-  if (state.imageIndex === state.imageCount - 1) {
+  if (!state.isRunning) return
+  if (state.imageIndex >= state.imageCount - 1) {
     state.imageIndex = -1
     if (!state.autoRestart) {
       state.isRunning = false
@@ -232,6 +333,8 @@ function loadNextFaceImage () {
   var data = state.images[++state.imageIndex]
   var width = data.width
   var height = data.height
+
+  // TODO: Enable smaller search compute canvas
   // var width, height
   // if (data.width > data.height) {
   //   width = Math.min(1024, data.width)
@@ -255,34 +358,6 @@ function loadNextFaceImage () {
     startSearchFace()
   }
   image.src = data.url
-}
-
-function searchPhotos () {
-  var size = sizeWithSuffix(sizeSuffixes.M_800)
-  var searchUrl = 'https://api.flickr.com/services/rest/?' +
-    serializeSearchParams({
-      method: 'flickr.photos.search',
-      api_key: '0fa09f66a4b7b225cbf8b7073b125c93',
-      text: 'mitch mcconnell',
-      sort: 'relevance',
-      license: '1,2,9,10', // modifications allowed
-      safe_search: '1',
-      extras: size.url,
-      per_page: 100,
-      format: 'json',
-      nojsoncallback: '1'
-    })
-  return fetch(searchUrl)
-    .then(resToJson)
-    .then(function (json) {
-      var photos = json.photos
-      var images = photos.photo
-        .map(mapPhoto.bind(null, size))
-        .filter(notNull)
-      return {
-        images: images
-      }
-    })
 }
 
 function resToJson (res) {
@@ -314,6 +389,12 @@ function serializeSearchParams (params) {
   return Object.keys(params).map(function (key) {
     return key + '=' + params[key]
   }).join('&')
+}
+
+function trickleSearchProgress () {
+  if (state.searchProgress === 1) return
+  state.searchProgress += (1 - state.searchProgress) * 0.02
+  setTimeout(trickleSearchProgress, 100)
 }
 
 // ..................................................
@@ -528,7 +609,7 @@ function drawCurrentFace () {
   var tick = state.tick++
   var clearColor = state.clearColorRgb()
 
-  state.drawnFaces = '// ' + (state._drawnFaces++)
+  state.drawnFaces = padLeft(++state._drawnFaces + '', '0', 4)
   transformCurrentFace(transform, positions, image)
   quadTexture({data: image})
 
@@ -571,12 +652,17 @@ function drawCurrentFace () {
 
 function clearScene () {
   state._drawnFaces = 0
-  state.drawnFaces = '--'
+  state.drawnFaces = '----'
   drawRect({
     color: state.clearColorRgb()
   })
   sceneBuffers.clear()
   fxBuffers.clear()
+}
+
+function padLeft (str, fill, length) {
+  while (str.length < length) str = fill + str
+  return str
 }
 
 // ..................................................
@@ -636,4 +722,6 @@ window.addEventListener('resize', resize, false)
 
 resize()
 clearScene()
-searchPhotosAndLoad()
+if (state.searchPhrase !== '--') {
+  setTimeout(searchPhotosAndLoad, 200)
+}
