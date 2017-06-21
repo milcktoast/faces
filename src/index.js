@@ -64,8 +64,8 @@ var state = {
   _drawnFaces: 0,
   drawnFaces: '----',
 
-  drawOpacity: 1,
-  blendMode: blendModes.HARD_LIGHT,
+  drawOpacity: 0.9,
+  blendMode: blendModes['HARD_LIGHT'],
   blendOpacity: 0.15,
 
   blurRadius: 16,
