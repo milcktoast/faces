@@ -44,7 +44,7 @@ var controls = oui.datoui({
 var state = {
   searchPhrase: decodeSearchFromUrl() || '--',
   searchSize: sizeSuffixes['800'],
-  searchMaxResults: 100,
+  searchMaxResults: 60,
   searchProgress: 0,
   searchResults: '--',
   isSearching: false,
@@ -63,11 +63,11 @@ var state = {
   _drawnFaces: 0,
   drawnFaces: '----',
 
-  drawOpacity: 0.9,
+  drawOpacity: 0.75,
   blendMode: blendModes['HARD_LIGHT'],
   blendOpacity: 0.15,
 
-  blurRadius: 16,
+  blurRadius: 8,
   blurCenter: {x: 0.5, y: 0.45},
 
   exportFormat: 'image/jpeg',
@@ -308,6 +308,7 @@ function syncSearchUrl () {
   }
 }
 
+// TODO: Add search paging
 // TODO: Select photos from multiple size candidates
 var searchPhotosState = {}
 function searchPhotos () {
@@ -323,7 +324,8 @@ function searchPhotos () {
       text: state.searchPhrase,
       sort: 'relevance',
       license: '1,2,9,10', // modifications allowed
-      safe_search: '1',
+      safe_search: '1', // safe
+      content_type: '1', // photos only
       extras: size.url,
       per_page: state.searchMaxResults,
       format: 'json',
