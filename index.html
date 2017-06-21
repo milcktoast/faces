@@ -29,7 +29,7 @@
       top: 0;
       left: 0;
       width: 100%;
-      height: 100%;
+      height: auto;
     }
     #composite {
       position: absolute;
@@ -47,10 +47,7 @@
 <body>
   <div id="container">
     <div id="composite"></div>
-    <div id="ctrack">
-      <canvas id="ctrack-image" width="600" height="400"></canvas>
-      <canvas id="ctrack-overlay" width="600" height="400"></canvas>
-    </div>
+    <div id="ctrack"></div>
   </div>
   <script src="./lib/clmtrackr/clmtrackr.js"></script>
   <script src="./lib/clmtrackr/models/model_pca_10_svm.js"></script>

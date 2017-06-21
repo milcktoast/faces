@@ -4,22 +4,24 @@ var pModel = window.pModel;
 var createRegl = require('regl')
 var glslify = require('glslify')
 var quad = require('glsl-quad')
-var blendModes = require('./constants/blend-modes')
-
 var glMatrix = require('gl-matrix')
 var vec2 = glMatrix.vec2
 var mat4 = glMatrix.mat4
-
 var oui = require('ouioui')
-var colr = require('colr')
+
+var blendModes = require('./constants/blend-modes')
+var sizeSuffixes = require('./constants/size-suffixes')
 
 var scratchMat4 = mat4.create()
 
 // TODO: Add ctrack image debug elements as controls component
-var ctrackImage = document.getElementById('ctrack-image')
-var ctrackOverlay = document.getElementById('ctrack-overlay')
+var ctrackContainer = document.getElementById('ctrack')
+var ctrackImage = document.createElement('canvas')
+var ctrackOverlay = document.createElement('canvas')
 var ctrackImageCtx = ctrackImage.getContext('2d')
 var ctrackOverlayCtx = ctrackOverlay.getContext('2d')
+ctrackContainer.appendChild(ctrackImage)
+ctrackContainer.appendChild(ctrackOverlay)
 
 var compositeContainer = document.getElementById('composite')
 var regl = createRegl({
@@ -29,15 +31,20 @@ var regl = createRegl({
   }
 })
 
+// ..................................................
+// Controls, state
+
 var controls = oui.datoui({
-  label: 'Controls'
+  label: 'Settings'
 })
 var state = {
+  activeImage: null,
+  images: null,
   imageIndex: -1,
-  imageCount: 17,
+  imageCount: -1,
 
   convergence: 0,
-  convergenceTarget: 8000,
+  convergenceTarget: 0.5,
   isRunning: true,
 
   drawOpacity: 1,
@@ -45,7 +52,7 @@ var state = {
   blendOpacity: 0.2,
 
   blurRadius: 16,
-  blurCenter: {x: 0.5, y: 0.5},
+  blurCenter: {x: 0.45, y: 0.5},
 
   clearColor: [24 / 255, 7 / 255, 31 / 255, 1],
   clearColorRgb: function () {
@@ -70,25 +77,31 @@ var state = {
   }
 }
 
-var folderDetection = controls.addFolder({label: 'Face Detector', open: true})
-folderDetection.add(state, 'convergence', {
+var folderDetector = controls.addFolder({
+  label: 'Face Detector',
+  open: true
+})
+folderDetector.add(state, 'convergence', {
   control: oui.controls.Slider,
   min: 0,
   max: 20000
 })
-folderDetection.add(state, 'convergenceTarget', {
+folderDetector.add(state, 'convergenceTarget', {
   control: oui.controls.Slider,
   min: 0,
   max: 20000
 })
-folderDetection.add(state, 'imageIndex', {
-  control: oui.controls.Slider,
-  min: -1,
-  max: state.imageCount - 1
+folderDetector.add(state, 'imageIndex', {
+  // control: oui.controls.Slider,
+  // min: -1,
+  // max: state.imageCount - 1
 })
-folderDetection.add(state, 'restart')
+folderDetector.add(state, 'restart')
 
-var folderCompositor = controls.addFolder({label: 'Compositor', open: true})
+var folderCompositor = controls.addFolder({
+  label: 'Compositor',
+  open: false
+})
 folderCompositor.add(state, 'drawOpacity', {
   control: oui.controls.Slider,
   min: 0,
@@ -123,13 +136,8 @@ folderCompositor.add(state, 'clearColor', {
 })
 folderCompositor.add(state, 'clear')
 
-function colrHsvToRgb (value) {
-  var out = colr.fromHsvObject(value).toRgbArray()
-  out[0] /= 255
-  out[1] /= 255
-  out[2] /= 255
-  return out
-}
+// ..................................................
+// Face detection
 
 var ctrack = new clm.tracker({
   scoreThreshold: 0.5,
@@ -164,30 +172,15 @@ function drawDebugLines (ctx, color, lines, positions) {
   ctx.stroke()
 }
 
-var faceImage = null
-function loadNextFaceImage () {
-  if (state.imageIndex === state.imageCount - 1) {
-    state.isRunning = false
-    return
-  }
-  var src = './static/assets/images/test/' + (++state.imageIndex) + '.jpg'
-  faceImage = new Image()
-  faceImage.onload = function () {
-    ctrackImageCtx.clearRect(0, 0, 600, 400)
-    ctrackImageCtx.drawImage(faceImage, 0, 0, 600, 400)
-    startSearchFace()
-  }
-  faceImage.src = src
-}
-
 var drawSearchProgressReq
 function drawSearchProgress () {
+  var el = ctrackOverlay
   var ctx = ctrackOverlayCtx
   var convergence = ctrack.getConvergence()
   var positions = ctrack.getCurrentPosition()
 
-  ctx.clearRect(0, 0, 600, 400)
   if (positions) {
+    ctx.clearRect(0, 0, el.width, el.height)
     ctrack.draw(ctrackOverlay)
     drawDebugLines(ctx, 'cyan', linesOuterFace, positions)
     drawDebugLines(ctx, 'magenta', linesCenterFace, positions)
@@ -201,21 +194,110 @@ function drawSearchProgress () {
   }
 }
 
-function getSegmentAngle (a, b) {
-  var rel = vec2.sub([], b, a)
-  return Math.atan2(rel[1], rel[0])
+// ..................................................
+// Fetch, load face image candidates
+
+function searchPhotosAndLoad () {
+  searchPhotos().then(function (data) {
+    state.images = data.images
+    state.imageCount = data.images.length
+    loadNextFaceImage()
+  })
 }
 
-function getCentroid (out, points) {
-  vec2.set(out, 0, 0)
-  for (var i = 0; i < points.length; i++) {
-    vec2.add(out, out, points[i])
+function loadNextFaceImage () {
+  if (state.imageIndex === state.imageCount - 1) {
+    state.isRunning = false
+    return
   }
-  vec2.scale(out, out, 1 / points.length)
-  return out
+  var data = state.images[++state.imageIndex]
+  // var width = data.width
+  // var height = data.height
+  var width, height
+  if (data.width > data.height) {
+    width = Math.min(1024, data.width)
+    height = Math.round(width / data.width * data.height)
+  } else {
+    height = Math.min(1024, data.height)
+    width = Math.round(height / data.height * data.width)
+  }
+
+  var image = new Image()
+  image.crossOrigin = 'Anonymous'
+  image.onload = function () {
+    ctrackImage.width = width
+    ctrackImage.height = height
+    ctrackOverlay.width = width
+    ctrackOverlay.height = height
+    ctrackImageCtx.clearRect(0, 0, width, height)
+    ctrackImageCtx.drawImage(image, 0, 0, width, height)
+    state.activeImage = image
+    startSearchFace()
+  }
+  image.src = data.url
 }
 
-// Post Processing
+function searchPhotos () {
+  var size = sizeWithSuffix(sizeSuffixes.M_800)
+  var searchUrl = 'https://api.flickr.com/services/rest/?' +
+    serializeSearchParams({
+      method: 'flickr.photos.search',
+      api_key: '0fa09f66a4b7b225cbf8b7073b125c93',
+      text: 'mitch mcconnell',
+      sort: 'relevance',
+      license: '1,2,9,10', // modifications allowed
+      safe_search: '1',
+      extras: size.url,
+      per_page: 100,
+      format: 'json',
+      nojsoncallback: '1'
+    })
+  return fetch(searchUrl)
+    .then(resToJson)
+    .then(function (json) {
+      var photos = json.photos
+      var images = photos.photo
+        .map(mapPhoto.bind(null, size))
+        .filter(notNull)
+      return {
+        images: images
+      }
+    })
+}
+
+function resToJson (res) {
+  return res.json()
+}
+
+function mapPhoto (size, photo) {
+  if (!photo[size.url]) return null
+  return {
+    url: photo[size.url],
+    width: parseInt(photo[size.width], 10),
+    height: parseInt(photo[size.height], 10)
+  }
+}
+
+function notNull (v) {
+  return v != null
+}
+
+function sizeWithSuffix (suffix) {
+  return {
+    url: 'url_' + suffix,
+    width: 'width_' + suffix,
+    height: 'height_' + suffix
+  }
+}
+
+function serializeSearchParams (params) {
+  return Object.keys(params).map(function (key) {
+    return key + '=' + params[key]
+  }).join('&')
+}
+
+// ..................................................
+// Post processing
 
 function createPostBuffers () {
   var buffers = {
@@ -267,7 +349,7 @@ var setupDrawScreen = regl({
     a_position: [-4, -4, 4, -4, 0, 4]
   },
   count: 3,
-  depth: { enable: false }
+  depth: {enable: false}
 })
 
 var drawRect = regl({
@@ -314,6 +396,7 @@ var drawScreen = regl({
   }
 })
 
+// ..................................................
 // Sprite quad
 
 var quadTransform = mat4.create()
@@ -361,6 +444,9 @@ var drawTexture = regl({
   }
 });
 
+// ..................................................
+// Transform, draw current face image
+
 function transformCurrentFace (transform, positions, image) {
   var width = state.width
   var height = state.height
@@ -394,6 +480,20 @@ function transformCurrentFace (transform, positions, image) {
   mat4.identity(scratchMat4, scratchMat4)
   mat4.translate(scratchMat4, scratchMat4, [-center[0], -center[1], 0])
   mat4.multiply(transform, transform, scratchMat4)
+}
+
+function getSegmentAngle (a, b) {
+  var rel = vec2.sub([], b, a)
+  return Math.atan2(rel[1], rel[0])
+}
+
+function getCentroid (out, points) {
+  vec2.set(out, 0, 0)
+  for (var i = 0; i < points.length; i++) {
+    vec2.add(out, out, points[i])
+  }
+  vec2.scale(out, out, 1 / points.length)
+  return out
 }
 
 function drawCurrentFace () {
@@ -456,6 +556,7 @@ function clearScene () {
   fxBuffers.clear()
 }
 
+// ..................................................
 // Face search flow
 
 function startSearchFace () {
@@ -484,6 +585,7 @@ function resize () {
     -width / 2, width / 2,
     height / 2, -height / 2,
     0, 1)
+  clearScene()
 }
 
 // detect if tracker fails to find a face
@@ -503,8 +605,8 @@ document.addEventListener('clmtrackrConverged', function (event) {
 
 window.addEventListener('resize', resize, false)
 
-// --------------------------------------------------
+// ..................................................
 
 resize()
 clearScene()
-loadNextFaceImage()
+searchPhotosAndLoad()
