@@ -333,6 +333,7 @@ function loadNextFaceImage () {
     state.imageIndex = -1
     if (!state.autoRestart) {
       state.isRunning = false
+      clearComputeCanvas()
       return
     }
   }
@@ -364,6 +365,11 @@ function loadNextFaceImage () {
     startSearchFace()
   }
   image.src = data.url
+}
+
+function clearComputeCanvas () {
+  ctrackImageCtx.clearRect(0, 0, ctrackImage.width, ctrackImage.height)
+  ctrackOverlayCtx.clearRect(0, 0, ctrackOverlay.width, ctrackOverlay.height)
 }
 
 function resToJson (res) {
