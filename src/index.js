@@ -623,7 +623,11 @@ function drawCurrentFace () {
 
   state.drawnFaces = padLeft(++state._drawnFaces + '', '0', 4)
   transformCurrentFace(transform, positions, image)
-  quadTexture({data: image})
+  quadTexture({
+    data: image,
+    width: image.naturalWidth,
+    height: image.naturalHeight
+  })
 
   sceneBuffers.resize(width, height)
   fxBuffers.resize(width, height)
