@@ -20,6 +20,10 @@ var ctrackImage = document.createElement('canvas')
 var ctrackOverlay = document.createElement('canvas')
 var ctrackImageCtx = ctrackImage.getContext('2d')
 var ctrackOverlayCtx = ctrackOverlay.getContext('2d')
+
+ctrackOverlay.style.position = 'absolute'
+ctrackOverlay.style.top = '0px'
+ctrackOverlay.style.left = '0px'
 ctrackContainer.appendChild(ctrackImage)
 ctrackContainer.appendChild(ctrackOverlay)
 
@@ -42,17 +46,22 @@ var state = {
   images: null,
   imageIndex: -1,
   imageCount: -1,
+  imageProgress: '--',
 
   convergence: 0,
-  convergenceTarget: 0.5,
+  convergenceTarget: 10,
+  showComputeCanvas: true,
+  autoRestart: false,
   isRunning: true,
+  _drawnFaces: 0,
+  drawnFaces: '--',
 
   drawOpacity: 1,
   blendMode: blendModes.HARD_LIGHT,
   blendOpacity: 0.2,
 
   blurRadius: 16,
-  blurCenter: {x: 0.45, y: 0.5},
+  blurCenter: {x: 0.5, y: 0.45},
 
   clearColor: [24 / 255, 7 / 255, 31 / 255, 1],
   clearColorRgb: function () {
@@ -81,6 +90,16 @@ var folderDetector = controls.addFolder({
   label: 'Face Detector',
   open: true
 })
+folderDetector.add(state, 'showComputeCanvas', {
+  onChange: function (shouldShow) {
+    if (shouldShow) {
+      ctrackContainer.style.display = 'block'
+    } else {
+      ctrackContainer.style.display = 'none'
+    }
+  }
+})
+folderDetector.add(state, 'autoRestart')
 folderDetector.add(state, 'convergence', {
   control: oui.controls.Slider,
   min: 0,
@@ -88,14 +107,11 @@ folderDetector.add(state, 'convergence', {
 })
 folderDetector.add(state, 'convergenceTarget', {
   control: oui.controls.Slider,
-  min: 0,
-  max: 20000
+  min: 0.5,
+  max: 500
 })
-folderDetector.add(state, 'imageIndex', {
-  // control: oui.controls.Slider,
-  // min: -1,
-  // max: state.imageCount - 1
-})
+folderDetector.add(state, 'imageProgress')
+folderDetector.add(state, 'drawnFaces')
 folderDetector.add(state, 'restart')
 
 var folderCompositor = controls.addFolder({
@@ -207,20 +223,23 @@ function searchPhotosAndLoad () {
 
 function loadNextFaceImage () {
   if (state.imageIndex === state.imageCount - 1) {
-    state.isRunning = false
-    return
+    state.imageIndex = -1
+    if (!state.autoRestart) {
+      state.isRunning = false
+      return
+    }
   }
   var data = state.images[++state.imageIndex]
-  // var width = data.width
-  // var height = data.height
-  var width, height
-  if (data.width > data.height) {
-    width = Math.min(1024, data.width)
-    height = Math.round(width / data.width * data.height)
-  } else {
-    height = Math.min(1024, data.height)
-    width = Math.round(height / data.height * data.width)
-  }
+  var width = data.width
+  var height = data.height
+  // var width, height
+  // if (data.width > data.height) {
+  //   width = Math.min(1024, data.width)
+  //   height = Math.round(width / data.width * data.height)
+  // } else {
+  //   height = Math.min(1024, data.height)
+  //   width = Math.round(height / data.height * data.width)
+  // }
 
   var image = new Image()
   image.crossOrigin = 'Anonymous'
@@ -232,6 +251,7 @@ function loadNextFaceImage () {
     ctrackImageCtx.clearRect(0, 0, width, height)
     ctrackImageCtx.drawImage(image, 0, 0, width, height)
     state.activeImage = image
+    state.imageProgress = (state.imageIndex + 1) + ' / ' + state.imageCount
     startSearchFace()
   }
   image.src = data.url
@@ -500,7 +520,7 @@ function drawCurrentFace () {
   var positions = ctrack.getCurrentPosition()
   if (!positions) return
 
-  var image = ctrackImage
+  var image = state.activeImage
   var texture = quadTexture
   var transform = quadTransform
   var width = state.width
@@ -508,6 +528,7 @@ function drawCurrentFace () {
   var tick = state.tick++
   var clearColor = state.clearColorRgb()
 
+  state.drawnFaces = '// ' + (state._drawnFaces++)
   transformCurrentFace(transform, positions, image)
   quadTexture({data: image})
 
@@ -549,6 +570,8 @@ function drawCurrentFace () {
 }
 
 function clearScene () {
+  state._drawnFaces = 0
+  state.drawnFaces = '--'
   drawRect({
     color: state.clearColorRgb()
   })
@@ -559,9 +582,11 @@ function clearScene () {
 // ..................................................
 // Face search flow
 
+var nextSearchTimeout
 function startSearchFace () {
   console.time('searchFace')
   ctrack.start(ctrackImage)
+  nextSearchTimeout = setTimeout(stopSearchFace.bind(null, 'searchFaceTimeout'), 2000)
   drawSearchProgress()
 }
 
@@ -573,6 +598,8 @@ function stopSearchFace (err) {
   ctrack.reset()
   cancelAnimationFrame(drawSearchProgressReq)
   drawSearchProgressReq = null
+  clearTimeout(nextSearchTimeout)
+  nextSearchTimeout = null
   setTimeout(loadNextFaceImage, 1)
 }
 
