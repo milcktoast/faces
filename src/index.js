@@ -14,7 +14,6 @@ var sizeSuffixes = require('./constants/size-suffixes')
 
 var scratchMat4 = mat4.create()
 
-// TODO: Add ctrack image debug elements as controls component
 var ctrackContainer = document.getElementById('ctrack')
 var ctrackImage = document.createElement('canvas')
 var ctrackOverlay = document.createElement('canvas')
@@ -41,8 +40,11 @@ var regl = createRegl({
 var controls = oui.datoui({
   label: 'Settings'
 })
+
+// TODO: Add image size setting
 var state = {
   searchPhrase: decodeSearchFromUrl() || '--',
+  searchSize: sizeSuffixes['800'],
   searchMaxResults: 100,
   searchProgress: 0,
   searchResults: '--',
@@ -64,7 +66,7 @@ var state = {
 
   drawOpacity: 1,
   blendMode: blendModes.HARD_LIGHT,
-  blendOpacity: 0.2,
+  blendOpacity: 0.15,
 
   blurRadius: 16,
   blurCenter: {x: 0.5, y: 0.45},
@@ -103,6 +105,10 @@ folderSearcher.add(state, 'searchPhrase', {
   onSubmit: function () {
     searchPhotosAndLoad()
   }
+})
+folderSearcher.add(state, 'searchSize', {
+  control: oui.controls.ComboBox,
+  options: sizeSuffixes
 })
 folderSearcher.add(state, 'searchMaxResults', {
   control: oui.controls.Slider,
@@ -285,7 +291,7 @@ function searchPhotos () {
   if (nextSearchHash === searchPhotosState.hash) {
     return Promise.resolve(searchPhotosState.results)
   }
-  var size = sizeWithSuffix(sizeSuffixes.M_800)
+  var size = sizeWithSuffix(state.searchSize)
   var searchUrl = 'https://api.flickr.com/services/rest/?' +
     serializeSearchParams({
       method: 'flickr.photos.search',
@@ -689,6 +695,7 @@ function stopSearchFace (err) {
   setTimeout(loadNextFaceImage, 1)
 }
 
+// TODO: Draw current state to framebuffer then transfer after resize
 function resize () {
   var width = window.innerWidth
   var height = window.innerHeight

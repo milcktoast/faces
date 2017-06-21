@@ -1,6 +1,10 @@
 // https://www.flickr.com/services/api/misc.urls.html
 module.exports = {
-  S_320: 'n',
-  M_800: 'c',
-  L_1600: 'h'
+  '240': 'm',
+  '320': 'n',
+  '640': 'z',
+  '800': 'c',
+  '1024': 'b',
+  '1600': 'h',
+  '2048': 'k'
 }
