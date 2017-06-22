@@ -81,7 +81,7 @@ var state = {
   width: 0,
   height: 0,
   projection: mat4.create(),
-  view: mat4.create(),
+  projectionView: mat4.create(),
   tick: 0,
 
   search: function () {
@@ -563,7 +563,7 @@ var drawTexture = regl({
       return state.projection
     },
     u_view: function () {
-      return state.view
+      return state.projectionView
     },
     u_model: regl.prop('transform'),
     u_size: regl.prop('size'),
@@ -582,9 +582,7 @@ var drawTexture = regl({
       alpha: 'add'
     }
   },
-  depth: {
-    enable: false
-  }
+  depth: {enable: false}
 });
 
 // ..................................................
@@ -606,21 +604,22 @@ function transformCurrentFace (transform, positions, image) {
   var scale = targetLengthAC / lengthAC
 
   // TODO: Optimize transforms
-  mat4.identity(transform, transform)
+  mat4.identity(transform)
 
-  mat4.identity(scratchMat4, scratchMat4)
+  mat4.identity(scratchMat4)
   mat4.rotateZ(transform, transform, -angleAC)
   mat4.multiply(transform, transform, scratchMat4)
 
-  mat4.identity(scratchMat4, scratchMat4)
+  mat4.identity(scratchMat4)
   mat4.scale(scratchMat4, scratchMat4, [scale, scale, scale])
   mat4.multiply(transform, transform, scratchMat4)
 
-  mat4.identity(scratchMat4, scratchMat4)
-  mat4.translate(scratchMat4, scratchMat4, [image.width / 2, image.height / 2, 0])
+  mat4.identity(scratchMat4)
+  mat4.translate(scratchMat4, scratchMat4,
+    [image.naturalWidth / 2, image.naturalHeight / 2, 0])
   mat4.multiply(transform, transform, scratchMat4)
 
-  mat4.identity(scratchMat4, scratchMat4)
+  mat4.identity(scratchMat4)
   mat4.translate(scratchMat4, scratchMat4, [-center[0], -center[1], 0])
   mat4.multiply(transform, transform, scratchMat4)
 }
@@ -670,7 +669,7 @@ function drawCurrentFace () {
     drawTexture({
       transform: transform,
       texture: texture,
-      size: [image.width, image.height],
+      size: [image.naturalWidth, image.naturalHeight],
       opacity: state.drawOpacity
     })
   })
