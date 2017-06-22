@@ -1,5 +1,5 @@
 {
-  "name": "face-melter",
+  "name": "faces",
   "version": "0.0.0",
   "description": "Melt faces. :P",
   "main": "src/index.js",
@@ -20,8 +20,9 @@
     "uglify-js": "^3.0.19"
   },
   "scripts": {
-    "start": "budo src/index.js:static/bundle.js --live -- -t installify -t glslify",
-    "build": "browserify -t [ glslify ] src/index.js | uglifyjs --compress --mangle > static/bundle.js",
+    "start": "budo src/index.js:build/bundle-app.js --live -- -t installify -t glslify",
+    "update": "sh ./scripts/copy_assets.sh",
+    "build": "sh ./scripts/build.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
   }
 }
