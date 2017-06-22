@@ -67,6 +67,7 @@ var state = {
   blurRadius: 8,
   blurCenter: {x: 0.5, y: 0.45},
 
+  shouldDrawScene: false,
   shouldDrawFace: false,
 
   exportFormat: 'image/jpeg',
@@ -742,7 +743,7 @@ function searchNextFace () {
   setTimeout(loadNextFaceImage, 1)
 }
 
-// TODO: Draw current state to framebuffer then transfer after resize
+// TODO: Draw current framebuffer state to screen at correct scale
 function resize () {
   var width = window.innerWidth
   var height = window.innerHeight
@@ -753,9 +754,14 @@ function resize () {
     height / 2, -height / 2,
     0, 1)
   clearScene()
+  // state.shouldDrawScene = true
 }
 
 function frame (context) {
+  if (state.shouldDrawScene) {
+    state.shouldDrawScene = false
+    drawCurrentScene()
+  }
   if (state.shouldDrawFace) {
     state.shouldDrawFace = false
     drawCurrentFace(context)
