@@ -28,10 +28,7 @@ ctrackContainer.appendChild(ctrackOverlay)
 
 var compositeContainer = document.getElementById('composite')
 var regl = createRegl({
-  container: compositeContainer,
-  attributes: {
-    preserveDrawingBuffer: false
-  }
+  container: compositeContainer
 })
 
 // ..................................................
@@ -495,27 +492,6 @@ var setupDrawScreen = regl({
   depth: {enable: false}
 })
 
-var drawRect = regl({
-  frag: glslify('./shaders/basic.frag'),
-  vert: glslify('./shaders/post-fx.vert'),
-  attributes: {
-    a_position: [-4, -4, 4, -4, 0, 4]
-  },
-  count: 3,
-  uniforms: {
-    u_color: regl.prop('color')
-  },
-  blend: {
-    enable: true,
-    equation: 'add',
-    func: {
-      src: 'src alpha',
-      dst: 'one minus src alpha'
-    }
-  },
-  depth: {enable: false}
-})
-
 var drawHashBlur = regl({
   frag: glslify('./shaders/post-fx-hash-blur.frag'),
   uniforms: {
@@ -663,7 +639,7 @@ function drawCurrentFace () {
 
   // sceneBuffers.swap()
   setupFBO({fbo: sceneBuffers.getWrite()}, function () {
-    drawRect({
+    regl.clear({
       color: clearColor
     })
     drawTexture({
