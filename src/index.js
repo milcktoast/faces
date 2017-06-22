@@ -14,6 +14,7 @@ var sizeSuffixes = require('./constants/size-suffixes')
 
 var scratchMat4 = mat4.create()
 
+var instructions = document.getElementById('instructions')
 var ctrackContainer = document.getElementById('ctrack')
 var ctrackImage = document.createElement('canvas')
 var ctrackOverlay = document.createElement('canvas')
@@ -77,6 +78,8 @@ var state = {
   clearColorRgb: function () {
     return state.clearColor.slice(0, 3)
   },
+
+  instructionsVisible: false,
 
   width: 0,
   height: 0,
@@ -197,7 +200,7 @@ folderCompositor.add(state, 'clear')
 
 var folderExporter = controls.addFolder({
   label: 'Exporter',
-  open: true
+  open: false
 })
 folderExporter.add(state, 'exportFormat', {
   control: oui.controls.ComboBox,
@@ -213,6 +216,21 @@ folderExporter.add(state, 'exportQuality', {
   max: 100
 })
 folderExporter.add(state, 'export')
+
+// ..................................................
+// Instructions
+
+function showInstructions () {
+  if (state.instructionsVisible) return
+  state.instructionsVisible = true
+  instructions.style.display = 'block'
+}
+
+function hideInstructions () {
+  if (!state.instructionsVisible) return
+  state.instructionsVisible = false
+  instructions.style.display = 'none'
+}
 
 // ..................................................
 // Face detection
@@ -281,6 +299,7 @@ function searchPhotosAndLoad () {
   state.isRunning = false
   state.searchProgress = 0
   state.searchResults = '--'
+  hideInstructions()
   syncSearchUrl()
   trickleSearchProgress()
   searchPhotos().then(function (data) {
@@ -793,4 +812,6 @@ resize()
 clearScene()
 if (state.searchPhrase !== '--') {
   setTimeout(searchPhotosAndLoad, 200)
+} else {
+  showInstructions()
 }

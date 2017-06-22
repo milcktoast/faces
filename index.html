@@ -22,6 +22,20 @@
       box-sizing: border-box;
       margin: 0;
     }
+    body {
+      background: #18081F;
+    }
+    a {
+      color: white;
+    }
+    #instructions {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      display: none;
+      color: white;
+      font: 16px/1 monospace;
+    }
     #ctrack-container {
       position: absolute;
       top: 0;
@@ -61,6 +75,9 @@
   <div id="composite"></div>
   <div id="ctrack-container">
     <div id="ctrack"></div>
+  </div>
+  <div id="instructions">
+    > Enter a <em>searchPhrase</em> to begin.
   </div>
   <!--
   <script src="./lib/clmtrackr/clmtrackr.js"></script>
