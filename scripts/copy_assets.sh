@@ -1,4 +1,4 @@
-SRC=$PROJECT_ASSETS_DIR/face-melter
+SRC=$PROJECT_ASSETS_DIR/faces
 DEST=./assets
 ARR="\x1b[32m>>>\x1b[0m"
 OK="\x1b[32m... OK\x1b[0m\n"
