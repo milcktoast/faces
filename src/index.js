@@ -68,6 +68,7 @@ var state = {
   blurRadius: 8,
   blurCenter: {x: 0.5, y: 0.45},
 
+  instructionsVisible: true,
   shouldDrawScene: false,
   shouldDrawFace: false,
 
@@ -78,8 +79,6 @@ var state = {
   clearColorRgb: function () {
     return state.clearColor.slice(0, 3)
   },
-
-  instructionsVisible: false,
 
   width: 0,
   height: 0,
@@ -221,8 +220,7 @@ folderExporter.add(state, 'export')
 // Instructions
 
 function showInstructions () {
-  if (state.instructionsVisible) return
-  state.instructionsVisible = true
+  instructions.innerHTML = '> Enter a <em>searchPhrase</em> to begin.'
   instructions.style.display = 'block'
 }
 
