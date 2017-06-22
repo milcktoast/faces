@@ -67,6 +67,8 @@ var state = {
   blurRadius: 8,
   blurCenter: {x: 0.5, y: 0.45},
 
+  shouldDrawFace: false,
+
   exportFormat: 'image/jpeg',
   exportQuality: 85,
 
@@ -614,7 +616,7 @@ function getCentroid (out, points) {
   return out
 }
 
-function drawCurrentFace () {
+function drawCurrentFace (context) {
   var positions = ctrack.getCurrentPosition()
   if (!positions) return
 
@@ -719,15 +721,24 @@ function startSearchFace () {
 }
 
 function stopSearchFace (err) {
-  if (err) console.warn(err, state.imageIndex)
-  if (!err) drawCurrentFace()
   console.timeEnd('searchFace')
+
+  cancelAnimationFrame(drawSearchProgressReq)
+  clearTimeout(nextSearchTimeout)
+  drawSearchProgressReq = null
+  nextSearchTimeout = null
+
+  if (err) {
+    console.warn(err, state.imageIndex)
+    searchNextFace()
+  } else {
+    state.shouldDrawFace = true
+  }
+}
+
+function searchNextFace () {
   ctrack.stop()
   ctrack.reset()
-  cancelAnimationFrame(drawSearchProgressReq)
-  drawSearchProgressReq = null
-  clearTimeout(nextSearchTimeout)
-  nextSearchTimeout = null
   setTimeout(loadNextFaceImage, 1)
 }
 
@@ -742,6 +753,14 @@ function resize () {
     height / 2, -height / 2,
     0, 1)
   clearScene()
+}
+
+function frame (context) {
+  if (state.shouldDrawFace) {
+    state.shouldDrawFace = false
+    drawCurrentFace(context)
+    searchNextFace()
+  }
 }
 
 // detect if tracker fails to find a face
@@ -760,6 +779,7 @@ document.addEventListener('clmtrackrConverged', function (event) {
 }, false)
 
 window.addEventListener('resize', resize, false)
+regl.frame(frame)
 
 // ..................................................
 
