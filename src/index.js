@@ -700,11 +700,11 @@ function drawCurrentScene (context) {
   mat4.identity(transform)
   mat4.scale(transform, transform, [1, -1, 1])
   write.resize(state.width, state.height)
-  regl.clear({
-    color: state.clearColor
-  })
 
   setupFBO({fbo: write}, function () {
+    regl.clear({
+      color: state.clearColor
+    })
     drawTexture({
       transform: transform,
       texture: read,
@@ -723,11 +723,12 @@ function drawCurrentScene (context) {
 function clearScene () {
   state._drawnFaces = 0
   state.drawnFaces = '----'
-  regl.clear({
-    color: state.clearColor
+  setupFBO({fbo: fxBuffers.getWrite()}, function () {
+    regl.clear({
+      color: state.clearColor
+    })
   })
-  sceneBuffers.clear()
-  fxBuffers.clear()
+  state.shouldDrawScene = true
 }
 
 function padLeft (str, fill, length) {
