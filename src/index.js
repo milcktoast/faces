@@ -769,6 +769,7 @@ function stopSearchFace (err) {
     console.warn(err, state.imageIndex)
     searchNextFace()
   } else {
+    ctrack.stop()
     state.shouldDrawFace = true
   }
 }
