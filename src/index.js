@@ -691,13 +691,31 @@ function drawCurrentFace (context) {
   })
 }
 
-function drawCurrentScene () {
+function drawCurrentScene (context) {
+  var transform = quadTransform
+  fxBuffers.swap()
+  var write = fxBuffers.getWrite()
+  var read = fxBuffers.getRead()
+
+  mat4.identity(transform)
+  mat4.scale(transform, transform, [1, -1, 1])
+  write.resize(state.width, state.height)
   regl.clear({
     color: state.clearColor
   })
+
+  setupFBO({fbo: write}, function () {
+    drawTexture({
+      transform: transform,
+      texture: read,
+      size: [read.width, read.height],
+      opacity: 1
+    })
+  })
+
   setupDrawScreen(function () {
     drawScreen({
-      color: fxBuffers.getWrite()
+      color: write
     })
   })
 }
@@ -770,14 +788,13 @@ function resize () {
     -width / 2, width / 2,
     height / 2, -height / 2,
     0, 1)
-  clearScene()
-  // state.shouldDrawScene = true
+  state.shouldDrawScene = true
 }
 
 function frame (context) {
   if (state.shouldDrawScene) {
     state.shouldDrawScene = false
-    drawCurrentScene()
+    drawCurrentScene(context)
   }
   if (state.shouldDrawFace) {
     state.shouldDrawFace = false
