@@ -20,7 +20,7 @@
     "uglify-js": "^3.0.19"
   },
   "scripts": {
-    "start": "budo src/index.js:build/bundle-app.js --live -- -t installify -t glslify",
+    "start": "sh ./scripts/start.sh",
     "update": "sh ./scripts/copy_assets.sh",
     "build": "sh ./scripts/build.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
