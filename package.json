@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "description": "Melt faces. :P",
   "main": "src/index.js",
-  "author": "Jay Weeks <jay.patrick.weeks@gmail.com> (https://jayweeks.com)",
+  "author": "Ash Weeks <milcktoast@icloud.com> (https://milcktoast.com)",
   "license": "Artistic-2.0",
   "dependencies": {
     "gl-matrix": "^2.3.2",
